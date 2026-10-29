@@ -78,8 +78,82 @@ python -m pytest backend/tests/test_skeleton.py -v
 - Database models aur data cleaning logic abhi implement nahi hui (Step 2 aur Step 3 ka scope).
 
 ### 11. Next Step (Without Implementing It)
-- **Step 1: Excel workbook inspect and profile**
-  - Read-only mode mein `data/source/KA rentals DB.xlsx` ka comprehensive structural profiling karna.
-  - Har sheet ke row/column counts, headers, nulls, data types aur duplicate headers ka structural report banana.
-  - `docs/excel-data-profile.md` create karna (bina kisi personal customer data ko expose kiye).
-  - Ambiguous columns identify karna aur business logic ke liye review notes prepare karna.
+- **Step 1: Excel workbook inspect and profile** (Completed - see below)
+
+---
+
+## Step 1: Excel Workbook Inspect and Profile
+
+- **Date / Time:** 2026-10-29 12:35 PKT
+- **Status:** Completed
+
+### 1. Objective (Hum kya banana chahte thay)
+Uploaded Excel workbook `data/source/KA rentals DB.xlsx` ko read-only mode mein inspect karna, tamam 14 sheets ka structural aur categorical profile tayar karna, row/column counts, data types, missing/null values, aur data anomalies identify karna bina kisi customer personal data ko expose kiye, aur comprehensive profiling document `docs/excel-data-profile.md` create karna.
+
+### 2. Files Created / Changed
+- `D:\KARental\docs\excel-data-profile.md`: Detailed structural profiling report (in Roman Urdu with technical metrics).
+- `D:\KARental\backend\tests\test_excel_profile.py`: Automated tests for sheet count, schema presence, cross-sheet vehicle normalization, and privacy assertion.
+- `D:\KARental\process.md`: Updated development log with Step 1 findings and decisions.
+
+### 3. What Was Implemented
+- Tamam 14 sheets ka automated exploratory scan kiya gaya.
+- Sheets ko 4 key business entities mein categorize kiya gaya:
+  1. **Customer Master:** `Customer details` (52 records).
+  2. **Contracts & Fleet:** `Current Contracts` (13 vehicles/contracts) aur `pay day` (13 vehicle hire terms).
+  3. **PCN & Violations:** `Outstanding PCN` (45 PCNs), `paying needed` (36 actionable PCNs), `Sheet15` (9 review PCNs), aur 6 individual driver sheets (`kashif `, `Mohammed PCN`, `Mohammed COW PCN`, `Adangoh `, `Ashley `, `Edwards PCN`).
+  4. **Mileage & Tracking:** `Sheet12` (13 vehicles mileage snapshot) aur `Milegae` (monthly odometer matrix with 35 columns).
+- Inconsistencies uncover huin:
+  - `Ashley ` sheet mein koi header row nahi hai (Row 0 par direct PCN data hai).
+  - `Milegae` sheet mein Row 0 blank hai aur headers Row 1 par hain.
+  - Several sheets mein trailing spaces hain (e.g. `'kashif '`, `'Adangoh '`, `'Driving License Number '`).
+  - Vehicle registrations mein whitespace mismatch hai (e.g. `LP21FYB` vs `LP21 FYB`, `FG72 UTX `). Normalize karne par 13 vehicles exact match hote hain.
+  - Contracts mein invalid date strings hain: `'-----------------------'` aur `'00/00/00'`.
+  - Operational sheets (`Outstanding PCN` aur driver sheets) mein customer names legal full names ke bajaye informal first names/handles hain.
+- Complete documentation `docs/excel-data-profile.md` generate ki gayi.
+
+### 4. Why We Chose This Approach
+- **Privacy Assurance:** Original personal data (names, emails, phone numbers, license numbers) ko expose kiye baghair sirf aggregated structural metrics evaluate kiye gaye.
+- **Root-Cause Discovery Before Cleaning:** Data clean karne se pehle actual flaws (missing headers, format variations, ghost rows) samajhna zaroori tha taake Step 2 ke cleaning rules deterministic hon.
+
+### 5. How It Works (Explained Simply)
+- Profiling script `openpyxl` aur `pandas` use karke sheet dimensions aur types extract karta hai.
+- Automated tests verify karte hain ke tamam sheets mojood hain aur documentation mein koi real customer email address leak nahi hua.
+
+### 6. Commands Run
+```powershell
+# Run backend pytest suite (all 8 tests)
+$env:PYTHONPATH="."
+python -m pytest backend/tests/ -v
+```
+
+### 7. Tests and Results
+- **Command:** `python -m pytest backend/tests/ -v`
+- **Result:** **8 passed in 3.51s**
+  - `test_source_file_and_sheet_count`: PASSED (All 14 sheets verified)
+  - `test_core_sheets_dimensions`: PASSED (Row counts and mandatory columns verified)
+  - `test_vehicle_registrations_cross_sheet_consistency`: PASSED (13 vehicles match across CC, pay day, and Sheet12 upon whitespace normalization)
+  - `test_profile_documentation_privacy`: PASSED (Verified zero customer emails present in documentation)
+  - `test_health_check`: PASSED
+  - `test_project_structure_exists`: PASSED
+  - `test_source_workbook_preserved`: PASSED
+  - `test_gitignore_covers_sensitive_files`: PASSED
+
+### 8. Decisions and Assumptions
+- Raw workbook ko bilkul modify nahi kiya gaya.
+- Driver sheets ko PCN entity ke audit source records ke taur par treat karne ka plan banaya gaya hai.
+
+### 9. Security and Data-Handling Notes
+- Automated privacy test run kiya gaya jo actual customer email list ko `docs/excel-data-profile.md` ke against check karta hai aur confirm karta hai ke koi email text mein shamil nahi.
+
+### 10. Known Limitations and Remaining Work
+- Status harmonization mapping aur canonical schemas abhi define hone hain (Step 2).
+- Database pipeline abhi implement nahi hui (Step 3).
+
+### 11. Next Step (Without Implementing It)
+- **Step 2: Data cleaning rules and canonical model**
+  - Canonical data models define karna: `PCNRecord`, `ContractRecord`, `CustomerRecord`, `VehicleRecord`, `DataQualityIssue`.
+  - Status mapping dictionary banana (`Not Payed` -> `unpaid`, `Payed` -> `paid`, `Cant get info ` -> `needs_review`, etc.).
+  - Header normalization aur whitespace cleaning rules banana.
+  - Source sheet aur source row traceability design tayar karna.
+  - `docs/data-cleaning-rules.md` likhna aur synthetic unit tests banana.
+
