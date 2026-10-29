@@ -48,12 +48,11 @@ def preview_operational_report(db: Session = Depends(get_db)):
     )
     contracts_action = [ContractResponse.model_validate(c) for c in db.scalars(contract_stmt).all()]
 
-    # 4. Critical Data Quality Issues
-    issues_stmt = (
-        select(DataQualityIssueRecord)
-        .where(DataQualityIssueRecord.severity == "critical")
-        .order_by(desc(DataQualityIssueRecord.id))
-    )
+    # 4. Critical Data Quality Issues (scoped to latest import run)
+    issues_stmt = select(DataQualityIssueRecord).where(DataQualityIssueRecord.severity == "critical")
+    if summary.latest_import:
+        issues_stmt = issues_stmt.where(DataQualityIssueRecord.import_run_id == summary.latest_import.id)
+    issues_stmt = issues_stmt.order_by(desc(DataQualityIssueRecord.id))
     critical_issues = [DataQualityIssueResponse.model_validate(i) for i in db.scalars(issues_stmt).all()]
 
     return ReportPreviewResponse(

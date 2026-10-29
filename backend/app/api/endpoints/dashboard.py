@@ -47,18 +47,37 @@ def get_dashboard_summary(db: Session = Depends(get_db)):
         select(func.count(PCN.id)).where(PCN.normalized_status == "needs_review")
     ) or 0
 
-    # Data Quality Issues
-    total_issues = db.scalar(select(func.count(DataQualityIssueRecord.id))) or 0
-    critical_issues = db.scalar(
-        select(func.count(DataQualityIssueRecord.id)).where(DataQualityIssueRecord.severity == "critical")
-    ) or 0
-    warning_issues = db.scalar(
-        select(func.count(DataQualityIssueRecord.id)).where(DataQualityIssueRecord.severity == "warning")
-    ) or 0
-
     # Latest Import
     latest_import_model = db.scalars(select(ImportRun).order_by(desc(ImportRun.id)).limit(1)).first()
     latest_import = ImportRunResponse.model_validate(latest_import_model) if latest_import_model else None
+
+    # Data Quality Issues (scoped to latest import run for accurate snapshot)
+    if latest_import_model:
+        total_issues = db.scalar(
+            select(func.count(DataQualityIssueRecord.id)).where(
+                DataQualityIssueRecord.import_run_id == latest_import_model.id
+            )
+        ) or 0
+        critical_issues = db.scalar(
+            select(func.count(DataQualityIssueRecord.id)).where(
+                DataQualityIssueRecord.import_run_id == latest_import_model.id,
+                DataQualityIssueRecord.severity == "critical",
+            )
+        ) or 0
+        warning_issues = db.scalar(
+            select(func.count(DataQualityIssueRecord.id)).where(
+                DataQualityIssueRecord.import_run_id == latest_import_model.id,
+                DataQualityIssueRecord.severity == "warning",
+            )
+        ) or 0
+    else:
+        total_issues = db.scalar(select(func.count(DataQualityIssueRecord.id))) or 0
+        critical_issues = db.scalar(
+            select(func.count(DataQualityIssueRecord.id)).where(DataQualityIssueRecord.severity == "critical")
+        ) or 0
+        warning_issues = db.scalar(
+            select(func.count(DataQualityIssueRecord.id)).where(DataQualityIssueRecord.severity == "warning")
+        ) or 0
 
     return DashboardSummary(
         total_vehicles=total_vehicles,
