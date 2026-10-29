@@ -36,21 +36,31 @@ def _get_env_config() -> Dict[str, str]:
     load_dotenv("backend/.env")
     load_dotenv(".env")
 
-    private_key = os.getenv("DOCUSIGN_PRIVATE_KEY", "")
+    def clean_val(val: Optional[str], default: str = "") -> str:
+        if not val:
+            return default
+        s = val.strip()
+        if (s.startswith('"') and s.endswith('"')) or (s.startswith("'") and s.endswith("'")):
+            s = s[1:-1].strip()
+        return s
+
+    private_key = os.getenv("DOCUSIGN_PRIVATE_KEY", "").strip()
+    if (private_key.startswith('"') and private_key.endswith('"')) or (private_key.startswith("'") and private_key.endswith("'")):
+        private_key = private_key[1:-1].strip()
     if "\\n" in private_key and "\n" not in private_key:
         private_key = private_key.replace("\\n", "\n")
 
-    raw_base_url = os.getenv("DOCUSIGN_BASE_URL", "https://demo.docusign.net/restapi").rstrip("/")
+    raw_base_url = clean_val(os.getenv("DOCUSIGN_BASE_URL"), "https://demo.docusign.net/restapi").rstrip("/")
     if not raw_base_url.endswith("/restapi"):
         base_url = f"{raw_base_url}/restapi"
     else:
         base_url = raw_base_url
 
     return {
-        "account_id": os.getenv("DOCUSIGN_ACCOUNT_ID", ""),
-        "client_id": os.getenv("DOCUSIGN_INTEGRATION_KEY", ""),
-        "user_id": os.getenv("DOCUSIGN_USER_ID", ""),
-        "auth_server": os.getenv("DOCUSIGN_AUTH_SERVER", "account-d.docusign.com"),
+        "account_id": clean_val(os.getenv("DOCUSIGN_ACCOUNT_ID")),
+        "client_id": clean_val(os.getenv("DOCUSIGN_INTEGRATION_KEY") or os.getenv("DOCUSIGN_CLIENT_ID")),
+        "user_id": clean_val(os.getenv("DOCUSIGN_USER_ID")),
+        "auth_server": clean_val(os.getenv("DOCUSIGN_AUTH_SERVER"), "account-d.docusign.com"),
         "base_url": base_url,
         "private_key": private_key,
     }
