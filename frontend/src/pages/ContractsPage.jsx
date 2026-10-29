@@ -10,10 +10,29 @@ import {
   CheckCircle2,
   RefreshCw,
   X,
-  ExternalLink,
+  Car,
+  User,
+  Calendar,
+  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
+
+const POPULAR_MODELS = [
+  'Nissan Juke',
+  'Mercedes GLC',
+  'Kia Niro',
+  'Tesla Model 3',
+  'BMW 2 Series',
+  'BMW X3',
+  'MG HS',
+  'MG ZS EV',
+  'Toyota Corolla Hybrid',
+  'Ford Kuga',
+  'Citroën Berlingo',
+  'Hyundai Kona',
+];
 
 export function ContractsPage() {
   const [contracts, setContracts] = useState([]);
@@ -32,15 +51,18 @@ export function ContractsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  // Form Fields
+  // Form Fields & Interactive Dropdown Selection
+  const [selectedVehicleReg, setSelectedVehicleReg] = useState('');
+  const [isManualVehicle, setIsManualVehicle] = useState(false);
   const [formReg, setFormReg] = useState('');
   const [formModel, setFormModel] = useState('');
+  const [isManualModel, setIsManualModel] = useState(false);
   const [formDriverName, setFormDriverName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formLicense, setFormLicense] = useState('');
   const [formAddress, setFormAddress] = useState('');
-  const [formRate, setFormRate] = useState('250');
+  const [formRate, setFormRate] = useState('325');
   const [formStartDate, setFormStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [formDuration, setFormDuration] = useState('28 days');
   const [formSendDocuSign, setFormSendDocuSign] = useState(true);
@@ -78,25 +100,83 @@ export function ContractsPage() {
     return () => clearTimeout(timer);
   }, [statusFilter, searchTerm, page]);
 
-  function handleVehicleSelect(reg) {
-    setFormReg(reg);
-    const found = vehicles.find((v) => v.normalized_registration === reg.replace(/\s+/g, '').toUpperCase());
-    if (found && found.make_model) {
-      setFormModel(found.make_model);
+  // Handle vehicle dropdown change
+  function handleVehicleDropdownChange(e) {
+    const val = e.target.value;
+    setSelectedVehicleReg(val);
+
+    if (val === '__custom__') {
+      setIsManualVehicle(true);
+      setFormReg('');
+      setFormModel('');
+      setIsManualModel(true);
+    } else if (val) {
+      setIsManualVehicle(false);
+      setFormReg(val);
+      const matched = vehicles.find(
+        (v) => v.normalized_registration === val.replace(/\s+/g, '').toUpperCase()
+      );
+      if (matched && matched.make_model) {
+        setFormModel(matched.make_model);
+        setIsManualModel(false);
+      } else {
+        setFormModel('');
+      }
+    } else {
+      setIsManualVehicle(false);
+      setFormReg('');
+      setFormModel('');
     }
   }
 
+  // Handle model dropdown change
+  function handleModelDropdownChange(e) {
+    const val = e.target.value;
+    if (val === '__custom__') {
+      setIsManualModel(true);
+      setFormModel('');
+    } else {
+      setIsManualModel(false);
+      setFormModel(val);
+    }
+  }
+
+  // Quick date helper
+  function setQuickDate(daysAhead) {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    setFormStartDate(d.toISOString().split('T')[0]);
+  }
+
+  function setNextMonday() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() + ((7 - day + 1) % 7 || 7);
+    const nextMon = new Date(d.setDate(diff));
+    setFormStartDate(nextMon.toISOString().split('T')[0]);
+  }
+
+  // Form Submission
   async function handleCreateHire(e) {
     e.preventDefault();
-    if (!formReg.trim() || !formDriverName.trim() || !formEmail.trim()) {
-      alert('Vehicle Registration, Driver Name, and Driver Email are mandatory.');
+    const regToSubmit = formReg.trim();
+    if (!regToSubmit) {
+      alert('Please select or enter a Vehicle Registration.');
+      return;
+    }
+    if (!formDriverName.trim()) {
+      alert('Please enter Driver Full Name.');
+      return;
+    }
+    if (!formEmail.trim() || !formEmail.includes('@')) {
+      alert('A valid Driver Email is mandatory for DocuSign digital delivery.');
       return;
     }
 
     try {
       setSubmitting(true);
       const res = await api.createContract({
-        vehicle_registration: formReg.trim(),
+        vehicle_registration: regToSubmit,
         vehicle_model: formModel.trim() || undefined,
         customer_name: formDriverName.trim(),
         customer_email: formEmail.trim(),
@@ -118,6 +198,7 @@ export function ContractsPage() {
       });
 
       // Reset form
+      setSelectedVehicleReg('');
       setFormReg('');
       setFormModel('');
       setFormDriverName('');
@@ -128,12 +209,13 @@ export function ContractsPage() {
 
       loadData();
     } catch (err) {
-      alert(`Error creating contract: ${err.message}`);
+      alert(`Error creating agreement: ${err.message}`);
     } finally {
       setSubmitting(false);
     }
   }
 
+  // Quick Action: Send DocuSign
   async function handleSendDocuSign(contract) {
     const email = prompt(`Enter driver's email address to send DocuSign agreement:`, 'driver@example.com');
     if (!email || !email.trim()) return;
@@ -150,12 +232,13 @@ export function ContractsPage() {
       });
       loadData();
     } catch (err) {
-      alert(`DocuSign send failed: ${err.message}`);
+      alert(`DocuSign dispatch failed: ${err.message}`);
     } finally {
       setActionLoadingId(null);
     }
   }
 
+  // Quick Action: Sync Status
   async function handleCheckDocuSignStatus(contract) {
     try {
       setActionLoadingId(contract.id);
@@ -172,9 +255,10 @@ export function ContractsPage() {
     }
   }
 
+  // Quick Action: Webhook Simulation
   async function handleSimulateWebhook(contract) {
     if (!contract.docusign_envelope_id) {
-      alert('Please send a DocuSign agreement first before simulating webhook.');
+      alert('Please dispatch a DocuSign agreement first before simulating webhook.');
       return;
     }
 
@@ -197,9 +281,14 @@ export function ContractsPage() {
     }
   }
 
+  // Selected vehicle details for preview
+  const activeVehicleObj = vehicles.find(
+    (v) => v.normalized_registration === formReg.replace(/\s+/g, '').toUpperCase()
+  );
+
   return (
     <div>
-      {/* Toast Notification */}
+      {/* Toast Notification Banner */}
       {notification && (
         <div
           className={`alert-box ${notification.type === 'success' ? 'alert-success' : 'alert-info'}`}
@@ -207,7 +296,7 @@ export function ContractsPage() {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {notification.type === 'success' ? <CheckCircle2 size={18} /> : <RefreshCw size={18} />}
-            <span>{notification.message}</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 500 }}>{notification.message}</span>
           </div>
           <button
             onClick={() => setNotification(null)}
@@ -218,48 +307,86 @@ export function ContractsPage() {
         </div>
       )}
 
+      {/* Main Panel */}
       <div className="card-panel">
         <div className="panel-header">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <h2 className="panel-title" style={{ margin: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <h2 className="panel-title" style={{ margin: 0, fontSize: '1.2rem' }}>
                 Fleet Rental Agreements ({total})
               </h2>
-              <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                <PlusCircle size={16} /> New Hire Agreement
+              <button
+                className="btn btn-primary"
+                onClick={() => setShowModal(true)}
+                style={{ padding: '8px 16px', fontWeight: 600, gap: '8px' }}
+              >
+                <PlusCircle size={17} /> New Hire Agreement
               </button>
             </div>
-            <p style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '4px' }}>
+            <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>
               Direct driver onboarding, automated contract creation, and DocuSign digital execution
             </p>
           </div>
 
+          {/* Interactive Filter Pills & Search */}
           <div className="filter-bar">
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search registration, driver, model..."
-              value={searchTerm}
-              onChange={(e) => {
-                setSearchTerm(e.target.value);
-                setPage(1);
-              }}
-            />
+            <div className="filter-pills">
+              <button
+                className={`filter-pill ${statusFilter === '' ? 'active' : ''}`}
+                onClick={() => {
+                  setStatusFilter('');
+                  setPage(1);
+                }}
+              >
+                All ({total})
+              </button>
+              <button
+                className={`filter-pill ${statusFilter === 'signed' ? 'active' : ''}`}
+                onClick={() => {
+                  setStatusFilter('signed');
+                  setPage(1);
+                }}
+              >
+                Signed
+              </button>
+              <button
+                className={`filter-pill ${statusFilter === 'not_signed' ? 'active' : ''}`}
+                onClick={() => {
+                  setStatusFilter('not_signed');
+                  setPage(1);
+                }}
+              >
+                Not Signed
+              </button>
+              <button
+                className={`filter-pill ${statusFilter === 'no_contract' ? 'active' : ''}`}
+                onClick={() => {
+                  setStatusFilter('no_contract');
+                  setPage(1);
+                }}
+              >
+                No Contract
+              </button>
+            </div>
 
-            <select
-              className="select-filter"
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-            >
-              <option value="">All Statuses</option>
-              <option value="signed">Signed</option>
-              <option value="not_signed">Not Signed</option>
-              <option value="no_contract">No Contract</option>
-              <option value="unknown">Unknown</option>
-            </select>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+              <input
+                type="text"
+                className="search-input"
+                placeholder="Search plate, driver, model..."
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setPage(1);
+                }}
+                style={{ paddingLeft: '32px' }}
+              />
+              <Search
+                size={16}
+                color="#94a3b8"
+                style={{ position: 'absolute', left: '10px', pointerEvents: 'none' }}
+              />
+            </div>
           </div>
         </div>
 
@@ -287,14 +414,14 @@ export function ContractsPage() {
                   <th>Start Date</th>
                   <th>Agreement Status</th>
                   <th>DocuSign Tracking</th>
-                  <th>Signature Actions</th>
+                  <th style={{ textAlign: 'right' }}>Signature Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {contracts.length === 0 ? (
                   <tr>
-                    <td colSpan="8" style={{ textAlign: 'center', padding: '36px' }}>
-                      No contracts found matching your filters.
+                    <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+                      No agreements found matching your search.
                     </td>
                   </tr>
                 ) : (
@@ -313,14 +440,14 @@ export function ContractsPage() {
                         <StatusBadge status={c.normalized_status} />
                       </td>
 
-                      {/* DocuSign Tracking Column */}
+                      {/* DocuSign Tracking */}
                       <td>
                         {c.normalized_status === 'signed' ? (
                           <span
                             style={{
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '4px',
+                              gap: '5px',
                               fontSize: '0.8rem',
                               fontWeight: 600,
                               color: '#16a34a',
@@ -355,9 +482,9 @@ export function ContractsPage() {
                         )}
                       </td>
 
-                      {/* Actions Column */}
-                      <td>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      {/* Actions */}
+                      <td style={{ textAlign: 'right' }}>
+                        <div style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
                           {c.normalized_status !== 'signed' && !c.docusign_envelope_id && (
                             <button
                               className="btn btn-outline"
@@ -374,7 +501,7 @@ export function ContractsPage() {
                               <button
                                 className="btn btn-outline"
                                 style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                                title="Check status with DocuSign"
+                                title="Sync status with DocuSign"
                                 disabled={actionLoadingId === c.id}
                                 onClick={() => handleCheckDocuSignStatus(c)}
                               >
@@ -388,8 +515,9 @@ export function ContractsPage() {
                                   fontSize: '0.75rem',
                                   color: '#16a34a',
                                   backgroundColor: '#f0fdf4',
+                                  border: '1px solid #bbf7d0',
                                 }}
-                                title="Simulate driver signing webhook"
+                                title="Simulate driver signature webhook"
                                 disabled={actionLoadingId === c.id}
                                 onClick={() => handleSimulateWebhook(c)}
                               >
@@ -399,7 +527,7 @@ export function ContractsPage() {
                           )}
 
                           {c.normalized_status === 'signed' && (
-                            <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 500 }}>
+                            <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600 }}>
                               Active Agreement
                             </span>
                           )}
@@ -436,10 +564,11 @@ export function ContractsPage() {
         </div>
       </div>
 
-      {/* NEW HIRE AGREEMENT MODAL */}
+      {/* INTERACTIVE NEW HIRE MODAL */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-card">
+        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            {/* Modal Header */}
             <div
               style={{
                 padding: '20px 24px',
@@ -447,183 +576,351 @@ export function ContractsPage() {
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
+                backgroundColor: '#f8fafc',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <FileSignature size={22} color="#2563eb" />
-                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700 }}>
-                  Onboard Driver & New Hire Agreement
-                </h3>
+                <div
+                  style={{
+                    backgroundColor: '#eff6ff',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <FileSignature size={22} color="#2563eb" />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>
+                    Onboard Driver & New Hire Agreement
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
+                    Creates contract, registers driver compliance, and prepares DocuSign envelope
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#64748b',
+                  padding: '4px',
+                }}
               >
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleCreateHire} style={{ padding: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              {/* SECTION 1: VEHICLE SELECTION (DROPDOWNS) */}
+              <div style={{ marginBottom: '20px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  <Car size={16} color="#2563eb" /> 1. Vehicle Selection
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                  {/* Vehicle Registration Dropdown */}
+                  <div>
+                    <label className="form-label">Fleet Vehicle Registration *</label>
+                    <select
+                      className="form-control"
+                      value={selectedVehicleReg}
+                      onChange={handleVehicleDropdownChange}
+                      required
+                    >
+                      <option value="">-- Choose from Fleet Vehicles ({vehicles.length}) --</option>
+                      {vehicles.map((v) => (
+                        <option key={v.id} value={v.registration}>
+                          {v.registration} {v.make_model ? `(${v.make_model})` : ''}
+                        </option>
+                      ))}
+                      <option value="__custom__">➕ Enter Unlisted / New Plate...</option>
+                    </select>
+
+                    {/* Manual Plate Input (if custom chosen) */}
+                    {isManualVehicle && (
+                      <input
+                        type="text"
+                        placeholder="Enter Registration (e.g. AB22 XYZ)"
+                        value={formReg}
+                        onChange={(e) => setFormReg(e.target.value.toUpperCase())}
+                        className="form-control"
+                        style={{ marginTop: '8px' }}
+                        required
+                      />
+                    )}
+                  </div>
+
+                  {/* Vehicle Model Dropdown */}
+                  <div>
+                    <label className="form-label">Vehicle Make & Model</label>
+                    <select
+                      className="form-control"
+                      value={isManualModel ? '__custom__' : formModel}
+                      onChange={handleModelDropdownChange}
+                    >
+                      <option value="">-- Select Vehicle Model --</option>
+                      {POPULAR_MODELS.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))}
+                      <option value="__custom__">➕ Other / Custom Model...</option>
+                    </select>
+
+                    {/* Manual Model Input (if custom chosen) */}
+                    {isManualModel && (
+                      <input
+                        type="text"
+                        placeholder="e.g. Toyota Corolla Hybrid"
+                        value={formModel}
+                        onChange={(e) => setFormModel(e.target.value)}
+                        className="form-control"
+                        style={{ marginTop: '8px' }}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Selected Vehicle Preview Chip */}
+                {formReg && (
+                  <div className="selected-vehicle-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <span className="reg-pill">{formReg}</span>
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
+                          {formModel || 'Model unspecified'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          {activeVehicleObj?.assigned_driver
+                            ? `Currently Assigned: ${activeVehicleObj.assigned_driver}`
+                            : 'Available for hire agreement'}
+                        </div>
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 600,
+                        backgroundColor: '#dbeafe',
+                        color: '#1e40af',
+                        padding: '3px 8px',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      Ready for Contract
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 2: DRIVER COMPLIANCE DETAILS */}
+              <div style={{ marginBottom: '20px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  <User size={16} color="#2563eb" /> 2. Driver Personal & Compliance Info
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                  <div>
+                    <label className="form-label">Driver Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Trelawny Edwards"
+                      value={formDriverName}
+                      onChange={(e) => setFormDriverName(e.target.value)}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">
+                      Driver Email (For DocuSign Delivery) *
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="driver@example.co.uk"
+                      value={formEmail}
+                      onChange={(e) => setFormEmail(e.target.value)}
+                      className="form-control"
+                      style={{
+                        borderColor: formEmail && formEmail.includes('@') ? '#16a34a' : undefined,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                  <div>
+                    <label className="form-label">Contact Phone</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 07123456789"
+                      value={formPhone}
+                      onChange={(e) => setFormPhone(e.target.value)}
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="form-label">UK Driving License Number</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. EDWAR011295TPGYP"
+                      value={formLicense}
+                      onChange={(e) => setFormLicense(e.target.value.toUpperCase())}
+                      className="form-control"
+                    />
+                  </div>
+                </div>
+
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Vehicle Registration *
-                  </label>
+                  <label className="form-label">Address & Postcode</label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. LP21 FYB"
-                    value={formReg}
-                    onChange={(e) => setFormReg(e.target.value.toUpperCase())}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                    placeholder="e.g. 37 Penrith Road, Croydon CR7 8PN"
+                    value={formAddress}
+                    onChange={(e) => setFormAddress(e.target.value)}
+                    className="form-control"
                   />
-                  {vehicles.length > 0 && (
-                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '6px' }}>
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Quick select:</span>
-                      {vehicles.slice(0, 4).map((v) => (
+                </div>
+              </div>
+
+              {/* SECTION 3: RENTAL TERMS & PRESETS */}
+              <div style={{ marginBottom: '20px' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    fontSize: '0.85rem',
+                    fontWeight: 700,
+                    color: '#0f172a',
+                    marginBottom: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
+                  <Calendar size={16} color="#2563eb" /> 3. Rental Terms & Rate
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                  <div>
+                    <label className="form-label">Weekly Rental Rate (£)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="325"
+                      value={formRate}
+                      onChange={(e) => setFormRate(e.target.value)}
+                      className="form-control"
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Presets:</span>
+                      {['200', '250', '300', '325'].map((amt) => (
                         <button
-                          key={v.id}
+                          key={amt}
                           type="button"
-                          onClick={() => handleVehicleSelect(v.registration)}
-                          style={{
-                            fontSize: '0.68rem',
-                            padding: '1px 5px',
-                            background: '#f1f5f9',
-                            border: '1px solid #cbd5e1',
-                            borderRadius: '3px',
-                            cursor: 'pointer',
-                          }}
+                          className="quick-btn"
+                          onClick={() => setFormRate(amt)}
                         >
-                          {v.registration}
+                          £{amt}
                         </button>
                       ))}
                     </div>
-                  )}
+                  </div>
+
+                  <div>
+                    <label className="form-label">Start Date</label>
+                    <input
+                      type="date"
+                      required
+                      value={formStartDate}
+                      onChange={(e) => setFormStartDate(e.target.value)}
+                      className="form-control"
+                    />
+                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                      <button
+                        type="button"
+                        className="quick-btn"
+                        onClick={() => setQuickDate(0)}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-btn"
+                        onClick={() => setQuickDate(1)}
+                      >
+                        Tomorrow
+                      </button>
+                      <button
+                        type="button"
+                        className="quick-btn"
+                        onClick={setNextMonday}
+                      >
+                        Next Monday
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Vehicle Model
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Toyota Corolla Hybrid"
-                    value={formModel}
-                    onChange={(e) => setFormModel(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
+                  <label className="form-label">Hire Duration</label>
+                  <select
+                    className="form-control"
+                    value={formDuration}
+                    onChange={(e) => setFormDuration(e.target.value)}
+                  >
+                    <option value="7 days">7 Days (1 Week)</option>
+                    <option value="14 days">14 Days (2 Weeks)</option>
+                    <option value="28 days">28 Days (Standard 4 Weeks Agreement)</option>
+                    <option value="90 days">90 Days (3 Months Extended)</option>
+                  </select>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Driver Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Trelawny Edwards"
-                    value={formDriverName}
-                    onChange={(e) => setFormDriverName(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Driver Email (For DocuSign) *
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    placeholder="e.g. driver@email.com"
-                    value={formEmail}
-                    onChange={(e) => setFormEmail(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Phone Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 07123456789"
-                    value={formPhone}
-                    onChange={(e) => setFormPhone(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    UK Driving License Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. EDWAR011295TPGYP"
-                    value={formLicense}
-                    onChange={(e) => setFormLicense(e.target.value.toUpperCase())}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                  Address & Postcode
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. 37 Penrith Road, CR7 8PN"
-                  value={formAddress}
-                  onChange={(e) => setFormAddress(e.target.value)}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Weekly Hire Rate (£)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="e.g. 250"
-                    value={formRate}
-                    onChange={(e) => setFormRate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, marginBottom: '6px' }}>
-                    Start Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formStartDate}
-                    onChange={(e) => setFormStartDate(e.target.value)}
-                    style={{ width: '100%', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-              </div>
-
+              {/* SECTION 4: DOCUSIGN TOGGLE */}
               <div
                 style={{
-                  padding: '12px 14px',
+                  padding: '14px 16px',
                   backgroundColor: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
+                  border: '1px solid #bfdbfe',
+                  borderRadius: '8px',
                   marginBottom: '20px',
                 }}
               >
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={formSendDocuSign}
@@ -631,16 +928,43 @@ export function ContractsPage() {
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
                   <div>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
-                      Dispatch DocuSign Agreement to driver immediately
-                    </span>
-                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>
-                      Generates 6-page legal hire agreement with Section 10 PCN liability transfer.
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e40af' }}>
+                        Dispatch DocuSign Agreement to driver immediately
+                      </span>
+                      <ShieldCheck size={16} color="#2563eb" />
+                    </div>
+                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                      Renders standard 6-page contract with Section 10 PCN liability transfer under Road Traffic Offenders Act 1988.
                     </span>
                   </div>
                 </label>
               </div>
 
+              {/* LIVE SUMMARY BANNER */}
+              {formReg && formDriverName && (
+                <div
+                  style={{
+                    backgroundColor: '#f0fdf4',
+                    border: '1px solid #bbf7d0',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    marginBottom: '20px',
+                    fontSize: '0.82rem',
+                    color: '#166534',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <Sparkles size={16} color="#16a34a" />
+                  <span>
+                    <strong>Summary:</strong> {formReg} ({formModel || 'Model TBD'}) • Driver: <strong>{formDriverName}</strong> • Rate: <strong>£{formRate}/wk</strong> • DocuSign: {formSendDocuSign ? 'Auto-Dispatch Enabled' : 'Draft Only'}
+                  </span>
+                </div>
+              )}
+
+              {/* BUTTONS */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                   type="button"
@@ -650,11 +974,16 @@ export function ContractsPage() {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn btn-primary" disabled={submitting}>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={submitting}
+                  style={{ padding: '10px 20px', fontWeight: 600 }}
+                >
                   {submitting ? (
                     <>
-                      <div className="spinner" style={{ width: '14px', height: '14px', margin: 0 }}></div>
-                      Processing & Dispatching...
+                      <div className="spinner" style={{ width: '15px', height: '15px', margin: 0 }}></div>
+                      Dispatching to DocuSign...
                     </>
                   ) : (
                     <>
