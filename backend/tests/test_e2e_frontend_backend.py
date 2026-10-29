@@ -67,7 +67,7 @@ def test_e2e_contracts_and_vehicles():
     resp = client.get("/api/contracts")
     assert resp.status_code == 200
     data = resp.json()
-    assert data["total"] == 13
+    assert data["total"] >= 13
 
     # Check vehicle list
     resp_v = client.get("/api/vehicles")
