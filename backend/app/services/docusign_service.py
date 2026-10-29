@@ -30,16 +30,28 @@ _token_expires_at: float = 0.0
 
 def _get_env_config() -> Dict[str, str]:
     """Retrieves DocuSign configuration from environment."""
+    from dotenv import load_dotenv
+
+    # Ensure environment variables are loaded
+    load_dotenv("backend/.env")
+    load_dotenv(".env")
+
     private_key = os.getenv("DOCUSIGN_PRIVATE_KEY", "")
     if "\\n" in private_key and "\n" not in private_key:
         private_key = private_key.replace("\\n", "\n")
+
+    raw_base_url = os.getenv("DOCUSIGN_BASE_URL", "https://demo.docusign.net/restapi").rstrip("/")
+    if not raw_base_url.endswith("/restapi"):
+        base_url = f"{raw_base_url}/restapi"
+    else:
+        base_url = raw_base_url
 
     return {
         "account_id": os.getenv("DOCUSIGN_ACCOUNT_ID", ""),
         "client_id": os.getenv("DOCUSIGN_INTEGRATION_KEY", ""),
         "user_id": os.getenv("DOCUSIGN_USER_ID", ""),
         "auth_server": os.getenv("DOCUSIGN_AUTH_SERVER", "account-d.docusign.com"),
-        "base_url": os.getenv("DOCUSIGN_BASE_URL", "https://demo.docusign.net/restapi"),
+        "base_url": base_url,
         "private_key": private_key,
     }
 
