@@ -1,5 +1,13 @@
 """Fleet Rental Automation - FastAPI Application Entry Point."""
 
+import sys
+from pathlib import Path
+
+# Add project root to sys.path so 'backend.app...' works from both root and backend/ directory
+root_dir = Path(__file__).resolve().parent.parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.insert(0, str(root_dir))
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
