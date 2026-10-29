@@ -7,17 +7,21 @@ from sqlalchemy.orm import Session, sessionmaker
 from backend.app.core.config import settings
 from backend.app.models.base import Base
 
+db_url = settings.DATABASE_URL
+# Render PostgreSQL URLs start with postgres://, SQLAlchemy requires postgresql://
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
 # Ensure the database directory exists if using a file path
-if settings.DATABASE_URL.startswith("sqlite:///"):
-    db_file_path = settings.DATABASE_URL.replace("sqlite:///", "")
-    import os
+if db_url.startswith("sqlite:///"):
+    db_file_path = db_url.replace("sqlite:///", "")
     from pathlib import Path
     db_dir = Path(db_file_path).parent
     db_dir.mkdir(parents=True, exist_ok=True)
 
 engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args={"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {},
+    db_url,
+    connect_args={"check_same_thread": False} if db_url.startswith("sqlite") else {},
     echo=False,
 )
 
