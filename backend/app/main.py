@@ -42,5 +42,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include API endpoints
+# Include API endpoints (Health, Import, PCNs, Fleet, Issues, Reports)
 app.include_router(api_router, prefix="/api")
