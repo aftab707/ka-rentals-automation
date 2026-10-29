@@ -86,4 +86,19 @@ export const api = {
   },
 
   getReportPreview: () => request('/api/reports/preview', { method: 'POST' }),
+
+  getOperationalReport: () => request('/api/reports/daily/json'),
+
+  getOperationalReportHtml: async () => {
+    const res = await fetch(`${BASE_URL}/api/reports/daily/html`);
+    if (!res.ok) throw new Error(`Server responded with ${res.status}`);
+    return await res.text();
+  },
+
+  sendMockEmail: (payload) =>
+    request('/api/reports/email/mock-send', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    }),
 };

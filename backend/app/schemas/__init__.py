@@ -22,6 +22,12 @@ from backend.app.schemas.api import (
     ReportPreviewResponse,
     PaginatedResponse,
 )
+from backend.app.schemas.report import (
+    ActionItem,
+    OperationalReport,
+    MockEmailRequest,
+    MockEmailResponse,
+)
 
 __all__ = [
     "PCNStatus",
@@ -44,4 +50,8 @@ __all__ = [
     "DashboardSummary",
     "ReportPreviewResponse",
     "PaginatedResponse",
+    "ActionItem",
+    "OperationalReport",
+    "MockEmailRequest",
+    "MockEmailResponse",
 ]
