@@ -3,7 +3,9 @@
  * Uses Vite reverse proxy (/api) or VITE_API_BASE_URL environment variable.
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? 'https://ka-rentals-automation.onrender.com' : '');
 
 async function request(endpoint, options = {}) {
   const url = `${BASE_URL}${endpoint}`;
