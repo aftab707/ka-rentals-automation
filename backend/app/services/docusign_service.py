@@ -82,25 +82,31 @@ def get_docusign_access_token() -> str:
     signed_jwt = jwt.encode(jwt_claims, config["private_key"], algorithm="RS256")
 
     token_url = f"https://{config['auth_server']}/oauth/token"
-    res = httpx.post(
-        token_url,
-        data={
-            "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
-            "assertion": signed_jwt,
-        },
-        timeout=15.0,
-    )
+    last_err = None
+    for attempt in range(3):
+        try:
+            res = httpx.post(
+                token_url,
+                data={
+                    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                    "assertion": signed_jwt,
+                },
+                timeout=20.0,
+            )
+            if res.status_code == 200:
+                data = res.json()
+                _cached_token = data["access_token"]
+                _token_expires_at = now + data.get("expires_in", 3600)
+                logger.info("Successfully acquired fresh DocuSign access token.")
+                return _cached_token
+            else:
+                last_err = RuntimeError(f"DocuSign token exchange failed ({res.status_code}): {res.text}")
+        except Exception as e:
+            last_err = e
+            logger.warning("DocuSign token request attempt %d failed: %s", attempt + 1, str(e))
+            time.sleep(1.0 * (attempt + 1))
 
-    if res.status_code != 200:
-        error_info = res.text
-        logger.error("DocuSign token exchange failed: %s", error_info)
-        raise RuntimeError(f"DocuSign token exchange failed ({res.status_code}): {error_info}")
-
-    data = res.json()
-    _cached_token = data["access_token"]
-    _token_expires_at = now + data.get("expires_in", 3600)
-    logger.info("Successfully acquired fresh DocuSign access token.")
-    return _cached_token
+    raise last_err
 
 
 def generate_contract_html(
@@ -281,46 +287,63 @@ def send_contract_envelope(
         "Content-Type": "application/json",
     }
 
-    res = httpx.post(url, json=envelope_payload, headers=headers, timeout=20.0)
+    last_err = None
+    for attempt in range(3):
+        try:
+            res = httpx.post(url, json=envelope_payload, headers=headers, timeout=25.0)
+            if res.status_code in (200, 201):
+                data = res.json()
+                envelope_id = data.get("envelopeId")
+                status = data.get("status", "sent")
 
-    if res.status_code not in (200, 201):
-        err_msg = f"DocuSign envelope creation failed ({res.status_code}): {res.text}"
-        logger.error(err_msg)
-        raise RuntimeError(err_msg)
+                # 3. Update database record
+                contract.docusign_envelope_id = envelope_id
+                contract.docusign_status = status
+                contract.raw_status = "sent_for_signature"
+                db.commit()
+                db.refresh(contract)
 
-    data = res.json()
-    envelope_id = data.get("envelopeId")
-    status = data.get("status", "sent")
+                logger.info("Dispatched DocuSign envelope %s for contract #%d to %s", envelope_id, contract.id, signer_email)
 
-    # 3. Update database record
-    contract.docusign_envelope_id = envelope_id
-    contract.docusign_status = status
-    contract.raw_status = "sent_for_signature"
-    db.commit()
-    db.refresh(contract)
+                return {
+                    "envelope_id": envelope_id,
+                    "status": status,
+                    "recipient_email": signer_email,
+                    "recipient_name": signer_name,
+                    "contract_id": contract.id,
+                }
+            else:
+                last_err = RuntimeError(f"DocuSign envelope creation failed ({res.status_code}): {res.text}")
+        except Exception as e:
+            last_err = e
+            logger.warning("DocuSign envelope creation attempt %d failed: %s", attempt + 1, str(e))
+            time.sleep(1.0 * (attempt + 1))
 
-    logger.info("Dispatched DocuSign envelope %s for contract #%d to %s", envelope_id, contract.id, signer_email)
-
-    return {
-        "envelope_id": envelope_id,
-        "status": status,
-        "recipient_email": signer_email,
-        "recipient_name": signer_name,
-        "contract_id": contract.id,
-    }
+    raise last_err
 
 
 def get_envelope_status(envelope_id: str) -> Dict[str, Any]:
-    """Retrieves current envelope status from DocuSign REST API."""
+    """Retrieves current envelope status from DocuSign REST API with automatic retry."""
     config = _get_env_config()
     token = get_docusign_access_token()
 
     url = f"{config['base_url']}/v2.1/accounts/{config['account_id']}/envelopes/{envelope_id}"
     headers = {"Authorization": f"Bearer {token}"}
 
-    res = httpx.get(url, headers=headers, timeout=15.0)
-    if res.status_code != 200:
-        raise RuntimeError(f"Failed to fetch envelope status ({res.status_code}): {res.text}")
+    last_err = None
+    for attempt in range(3):
+        try:
+            res = httpx.get(url, headers=headers, timeout=20.0)
+            if res.status_code == 200:
+                return res.json()
+            else:
+                last_err = RuntimeError(f"Failed to fetch envelope status ({res.status_code}): {res.text}")
+        except Exception as e:
+            last_err = e
+            logger.warning("DocuSign status check attempt %d failed: %s", attempt + 1, str(e))
+            time.sleep(1.0 * (attempt + 1))
+
+    raise last_err
 
     return res.json()
 

@@ -98,6 +98,35 @@ export function ContractsPage() {
     return () => clearTimeout(timer);
   }, [statusFilter, searchTerm, page]);
 
+  // Real-Time Background Signature Sync:
+  // Automatically detects when a driver signs on DocuSign and updates the UI without clicking Sync!
+  useEffect(() => {
+    const awaitingSignatureContracts = contracts.filter(
+      (c) => c.docusign_envelope_id && c.normalized_status !== 'signed'
+    );
+
+    if (awaitingSignatureContracts.length === 0) return;
+
+    const interval = setInterval(async () => {
+      let signedCount = 0;
+      for (const contract of awaitingSignatureContracts) {
+        try {
+          const res = await api.checkDocuSignStatus(contract.id);
+          if (res.status === 'completed') {
+            signedCount++;
+          }
+        } catch (_) {
+          // Silent ignore during auto-sync
+        }
+      }
+      if (signedCount > 0) {
+        loadData();
+      }
+    }, 6000); // Auto-polls every 6 seconds
+
+    return () => clearInterval(interval);
+  }, [contracts]);
+
   // Handle vehicle dropdown change
   function handleVehicleDropdownChange(e) {
     const val = e.target.value;
