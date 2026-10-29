@@ -48,8 +48,8 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 
-@app.get("/", tags=["Health"])
-@app.get("/health", tags=["Health"])
+@app.api_route("/", methods=["GET", "HEAD"], tags=["Health"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["Health"])
 def root_health_check():
     """Root health check for Render, UptimeRobot, and cloud monitors."""
     return {"status": "ok", "app": "Fleet Rental Automation API", "version": "0.1.0"}

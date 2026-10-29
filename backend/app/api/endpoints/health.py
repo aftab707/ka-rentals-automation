@@ -6,7 +6,7 @@ from backend.app.schemas.api import HealthResponse
 router = APIRouter()
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.api_route("/health", methods=["GET", "HEAD"], response_model=HealthResponse)
 def get_health():
     """Returns application service status and version."""
     return HealthResponse(
