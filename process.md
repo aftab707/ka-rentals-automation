@@ -317,17 +317,103 @@ python -m pytest backend/tests/ -v
 - Frontend UI abhi database se connected nahi hai (Step 5 aur 6 ka scope).
 
 ### 11. Next Step (Without Implementing It)
-- **Step 4: FastAPI endpoints and backend tests**
-  - REST API routes banana:
-    - `GET /api/health`
-    - `POST /api/import/excel` (file upload handler with validation and size check)
-    - `GET /api/dashboard/summary` (KPI counts: total vehicles, active contracts, unpaid PCNs, conflict PCNs, data issues)
-    - `GET /api/pcns` (PCN list with pagination, status filter, registration filter, has_conflict filter)
-    - `GET /api/contracts` (Contracts list with status filter)
-    - `GET /api/data-quality/issues` (Audited data quality issues list with severity filter)
-    - `GET /api/imports` (History of import runs)
-  - Pydantic response schemas banana.
-  - Automated API integration tests likhna with FastAPI `TestClient`.
+- **Step 4: FastAPI endpoints and backend tests** (Completed - see below)
+
+---
+
+## Step 4: FastAPI Endpoints and Backend Tests
+
+- **Date / Time:** 2026-10-29 14:10 PKT
+- **Status:** Completed
+
+### 1. Objective (Hum kya banana chahte thay)
+FastAPI REST API endpoints design aur implement karna, Pydantic response schemas aur pagination model banana, safe Excel file upload validation (file type aur size limit checks) implement karna, operations dashboard summary KPIs expose karna, PCN aur Contract lists with status/conflict filters provide karna, data quality issues audit API banana, report preview endpoint banana, aur FastAPI `TestClient` ke zariye automated integration tests likhna.
+
+### 2. Files Created / Changed
+- `D:\KARental\backend\app\schemas\api.py`: API response schemas (`DashboardSummary`, `PCNResponse`, `ContractResponse`, `VehicleResponse`, `DataQualityIssueResponse`, `ImportRunResponse`, `ReportPreviewResponse`, `PaginatedResponse[T]`).
+- `D:\KARental\backend\app\schemas\__init__.py`: API schemas export.
+- `D:\KARental\backend\app\api/endpoints/health.py`: `GET /api/health`.
+- `D:\KARental\backend\app\api/endpoints/importer.py`: `POST /api/import/excel` (safe upload & validation), `GET /api/imports`.
+- `D:\KARental\backend\app\api/endpoints/dashboard.py`: `GET /api/dashboard/summary` (real-time KPI calculations).
+- `D:\KARental\backend\app\api/endpoints/pcns.py`: `GET /api/pcns` (paginated, status/registration/conflict filters, search).
+- `D:\KARental\backend\app\api/endpoints/contracts.py`: `GET /api/contracts` aur `GET /api/vehicles`.
+- `D:\KARental\backend\app\api/endpoints/issues.py`: `GET /api/data-quality/issues` (severity/category filters).
+- `D:\KARental\backend\app\api/endpoints/reports.py`: `POST /api/reports/preview` (operational report preview).
+- `D:\KARental\backend\app\api/router.py`: Central aggregator router.
+- `D:\KARental\backend\app\main.py`: FastAPI application lifespan table initialization, CORS configuration for `http://localhost:5173`, aur router mounting.
+- `D:\KARental\backend\tests/test_api_endpoints.py`: Integration test suite for all endpoints.
+- `D:\KARental\process.md`: Updated development log with Step 4 details.
+
+### 3. What Was Implemented
+- **REST Endpoints Implemented:**
+  - `GET /api/health`: Application health check.
+  - `POST /api/import/excel`: Secure upload handler that validates file extensions (`.xlsx`, `.xls`), enforces a 25MB maximum file size limit, executes the idempotent import pipeline, and returns `ImportRunResponse`.
+  - `GET /api/imports`: Historical audit log of import executions.
+  - `GET /api/dashboard/summary`: Computes live operational fleet KPIs:
+    - Vehicles count: 14
+    - Total PCNs: 78
+    - Unpaid / Action Needed PCNs: 23 unpaid, 38 action needed
+    - Conflicting PCNs: 1 critical conflict
+    - Data Quality Issues: 75 total (1 critical, 5 warnings, 69 info)
+    - Latest import status and execution timestamp
+  - `GET /api/pcns`: Paginated list of PCN records with query parameters: `status`, `registration`, `has_conflict`, `search`, `page`, `size`.
+  - `GET /api/contracts` & `GET /api/vehicles`: Fleet agreements and vehicle details with search and status filters.
+  - `GET /api/data-quality/issues`: Categorized anomalies ordered by severity (`critical` first).
+  - `POST /api/reports/preview`: Aggregated preview of urgent PCNs, conflicts, unsigned contracts, and critical alerts.
+- **Security & Validation:**
+  - Client side se arbitrary filesystem paths accept nahi hotay; sirf direct multipart uploaded files securely temp storage mein process hoti hain aur fauran cleanup hoti hain.
+  - CORS strictly local Vite origin `http://localhost:5173` par configured hai.
+
+### 4. Why We Chose This Approach
+- **Clean REST Architecture:** Frontend aur future automations (n8n) ko standard, well-typed JSON responses miltay hain jisme standard pagination format shamil hai.
+- **Fail-Safe Upload Validation:** Invalid files (e.g. non-excel scripts) upload endpoint par hi reject ho jati hain taake processing pipeline corrupt na ho.
+
+### 5. How It Works (Explained Simply)
+- Client HTTP request bhejta hai.
+- FastAPI Pydantic schema ke mutabiq query parameters validate karti hai.
+- Endpoint SQLAlchemy session use karke filtered queries execute karta hai aur results ko Pydantic models ke through serialize karta hai.
+- Pytest suite TestClient use karke live HTTP requests simulate karti hai.
+
+### 6. Commands Run
+```powershell
+# Run backend pytest suite (all 30 tests)
+$env:PYTHONPATH="."
+python -m pytest backend/tests/ -v
+```
+
+### 7. Tests and Results
+- **Command:** `python -m pytest backend/tests/ -v`
+- **Result:** **30 passed in 10.02s**
+  - `test_api_health`: PASSED (Returns 200 OK)
+  - `test_api_import_excel_validation_bad_extension`: PASSED (Returns 400 Bad Request on .txt upload)
+  - `test_api_import_excel_valid`: PASSED (Returns 201 Created and runs idempotent pipeline)
+  - `test_api_dashboard_summary`: PASSED (KPI numbers accurately match database)
+  - `test_api_pcns_filtering_and_pagination`: PASSED (Pagination, status='unpaid' and has_conflict=True filters work)
+  - `test_api_contracts_and_vehicles`: PASSED (13 contracts, 14 vehicles returned)
+  - `test_api_data_quality_issues`: PASSED (Severity='critical' filter works)
+  - `test_api_imports_history`: PASSED (Import runs list returned)
+  - `test_api_reports_preview`: PASSED (Report preview response structure verified)
+  - Pehle ke تمام 21 tests: PASSED
+
+### 8. Decisions and Assumptions
+- CORS configuration development ke liye `http://localhost:5173` allow karti hai.
+- Upload size limit 25MB rakhi gayi hai jo UK car rental spreadsheets ke liye kaafi hai.
+
+### 9. Security and Data-Handling Notes
+- Customer personal data logs mein print nahi hota.
+- Uploaded temporary files pipeline execution ke baad automatically unlink (delete) ho jati hain.
+
+### 10. Known Limitations and Remaining Work
+- React dashboard frontend abhi backend se connect hona baqi hai (Step 5 aur Step 6 ka scope).
+
+### 11. Next Step (Without Implementing It)
+- **Step 5: Vite + React frontend foundation**
+  - Vite + React application setup verify karna.
+  - Dashboard layout design karna (Sidebar, Navigation, Topbar, KPI summary cards, Status badges).
+  - API service layer banana (Axios / Fetch client configured to `http://localhost:8000/api`).
+  - Overview, PCN records, Contracts, Data Quality aur Import history components scaffold karna.
+  - Build/lint checks verify karna.
+
 
 
 

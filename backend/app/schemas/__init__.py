@@ -10,6 +10,18 @@ from backend.app.schemas.canonical import (
     VehicleRecord,
     CleaningResult,
 )
+from backend.app.schemas.api import (
+    HealthResponse,
+    ImportRunResponse,
+    CustomerResponse,
+    VehicleResponse,
+    ContractResponse,
+    PCNResponse,
+    DataQualityIssueResponse,
+    DashboardSummary,
+    ReportPreviewResponse,
+    PaginatedResponse,
+)
 
 __all__ = [
     "PCNStatus",
@@ -22,4 +34,14 @@ __all__ = [
     "ContractRecord",
     "VehicleRecord",
     "CleaningResult",
+    "HealthResponse",
+    "ImportRunResponse",
+    "CustomerResponse",
+    "VehicleResponse",
+    "ContractResponse",
+    "PCNResponse",
+    "DataQualityIssueResponse",
+    "DashboardSummary",
+    "ReportPreviewResponse",
+    "PaginatedResponse",
 ]
