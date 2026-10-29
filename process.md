@@ -150,10 +150,100 @@ python -m pytest backend/tests/ -v
 - Database pipeline abhi implement nahi hui (Step 3).
 
 ### 11. Next Step (Without Implementing It)
-- **Step 2: Data cleaning rules and canonical model**
-  - Canonical data models define karna: `PCNRecord`, `ContractRecord`, `CustomerRecord`, `VehicleRecord`, `DataQualityIssue`.
-  - Status mapping dictionary banana (`Not Payed` -> `unpaid`, `Payed` -> `paid`, `Cant get info ` -> `needs_review`, etc.).
-  - Header normalization aur whitespace cleaning rules banana.
-  - Source sheet aur source row traceability design tayar karna.
-  - `docs/data-cleaning-rules.md` likhna aur synthetic unit tests banana.
+- **Step 2: Data cleaning rules and canonical model** (Completed - see below)
+
+---
+
+## Step 2: Data Cleaning Rules and Canonical Model
+
+- **Date / Time:** 2026-10-29 13:39 PKT
+- **Status:** Completed
+
+### 1. Objective (Hum kya banana chahte thay)
+Step 1 ki findings ki roshni mein canonical Pydantic schemas define karna (`PCNRecord`, `ContractRecord`, `CustomerRecord`, `VehicleRecord`, `DataQualityIssue`), raw aur normalized values ko alag preserve karna, deterministic cleaning rules (registration normalization, currency parsing, placeholder date interception, ghost rows removal) implement karna, cross-sheet duplicate PCN deduplication aur conflict resolution engine banana, comprehensive documentation `docs/data-cleaning-rules.md` likhna, aur synthetic unit tests ke sath test karna.
+
+### 2. Files Created / Changed
+- `D:\KARental\backend\app\schemas\canonical.py`: Canonical Pydantic schemas for entities and data quality issues.
+- `D:\KARental\backend\app\schemas\__init__.py`: Schema exports.
+- `D:\KARental\backend\app\services\cleaner.py`: Normalization and cleaning logic (registration, dates, amounts, status mappings, customer cleaning, duplicate/conflict resolver).
+- `D:\KARental\backend\app\services\excel_loader.py`: In-memory multi-sheet workbook reader applying cleaning rules (headerless Ashley sheet recovery, ghost row filtering).
+- `D:\KARental\docs\data-cleaning-rules.md`: Complete documentation of cleaning rules, status taxonomy, and conflict handling in Roman Urdu.
+- `D:\KARental\backend\tests\test_cleaning_rules.py`: Comprehensive synthetic unit tests (zero real client data used).
+- `D:\KARental\process.md`: Updated development log with Step 2 details.
+
+### 3. What Was Implemented
+- **Pydantic Schemas:**
+  - `PCNRecord`: ticket number, registrations (raw & normalized), date, fine amount, raw status, canonical status (`paid`, `unpaid`, `action_needed`, `needs_review`, `unknown`, `conflict`), payment URL, `source_sheet`, `source_row`, `has_conflict`, `conflict_notes`.
+  - `ContractRecord`: vehicle registrations, customer name, start/end dates, rate, period, raw status, canonical status (`signed`, `not_signed`, `no_contract`, `unknown`), make/model, hire duration, `source_sheet`, `source_row`.
+  - `CustomerRecord`: customer id, full name, email, phone, driving license, source location.
+  - `VehicleRecord`: registration, make/model, mileage, driver, active contract status.
+  - `DataQualityIssue`: category, issue type, severity (`critical`, `warning`, `info`), record identifier, source sheet & row, field, raw value, description.
+- **Normalization Rules:**
+  - UK Vehicle Registration: Whitespace & punctuation removal, uppercase normalization (e.g. `'  la19 wpd  '` -> `'LA19WPD'`), jabke raw string intact rehti hai.
+  - Status Normalization: `Not Payed` / `Awaiting Payment` -> `unpaid`; `Action Needed` -> `action_needed`; `Payed` -> `paid`; `Cant get info ` / `Fine Not Assignable` -> `needs_review`; `None` -> `unknown`.
+  - Date Protection: Corrupt placeholder markers jaise `'-----------------------'` aur `'00/00/00'` ko null treat kiya gaya aur `DataQualityIssue(WARNING, 'INVALID_DATE_FORMAT')` emit kiya gaya.
+  - Ashley Sheet Recovery: Sheet mein header row missing hone par synthetic column mapping apply ki gayi (`ticket`, `fine`, `reg`) aur issue log kiya gaya.
+  - Cross-Sheet Duplicate & Conflict Engine: Tickets jo multiple sheets mein paye gaye unhein deduplicate kiya gaya. Jab kisi ticket ka status do sheets mein mutazaad (conflicting) paya gaya (e.g., ticket `2577262100014` ek sheet mein 'Payed' aur doosri mein 'paying needed'), to system ne silently overwrite karne ke bajaye record ko `PCNStatus.CONFLICT` mark kiya aur `CRITICAL` severity alert emit kiya.
+- **In-Memory Trial on Workbook:**
+  - Customers: 52 cleaned.
+  - Contracts: 13 cleaned.
+  - Vehicles: 13 unique fleet vehicles matched.
+  - Harmonized PCNs: 78 unique PCNs (out of total sheet appearances).
+  - Data Quality Issues: 75 issues categorized (1 Critical conflict, 5 Warnings, 69 Info).
+
+### 4. Why We Chose This Approach
+- **Business Protection (UK Rental Context):** Car rental operations mein PCN ka galat status (paid ko unpaid ya vice versa) bhari financial loss (bailiffs ya double payments) ka sabab ban sakta hai. Explicit `conflict` status aur anomaly tracking human operator ko exact source sheet aur row batati hai.
+- **Zero Loss Traceability:** Raw source values aur original sheet/row metadata hamesha preserve hotay hain taake har decision verifiable ho.
+
+### 5. How It Works (Explained Simply)
+- Data loader har sheet ko read karta hai, header aur formatting quirks handle karta hai, aur data types ko clean karta hai.
+- Tamam collected PCN candidates ko `resolve_pcn_duplicates` function se guzara jata hai jo single tickets ko retain karta hai aur multi-sheet tickets ke fields ko merge karte hue status agreement check karta hai.
+- Pytest suite 9 synthetic unit tests chala kar har normalization rule ko dummy data ke sath verify karti hai.
+
+### 6. Commands Run
+```powershell
+# Run backend pytest suite (all 17 tests)
+$env:PYTHONPATH="."
+python -m pytest backend/tests/ -v
+```
+
+### 7. Tests and Results
+- **Command:** `python -m pytest backend/tests/ -v`
+- **Result:** **17 passed in 3.57s**
+  - `test_registration_normalization`: PASSED
+  - `test_ticket_number_normalization`: PASSED
+  - `test_pcn_status_normalization`: PASSED
+  - `test_contract_status_normalization`: PASSED
+  - `test_currency_amount_parsing`: PASSED
+  - `test_placeholder_date_interception`: PASSED (invalid dates turn to None + raise issue)
+  - `test_valid_date_parsing`: PASSED
+  - `test_clean_customer_row_synthetic`: PASSED
+  - `test_cross_sheet_duplicate_and_conflict_resolution`: PASSED (verifies deduplication and conflict alert)
+  - `test_source_file_and_sheet_count`: PASSED
+  - `test_core_sheets_dimensions`: PASSED
+  - `test_vehicle_registrations_cross_sheet_consistency`: PASSED
+  - `test_profile_documentation_privacy`: PASSED
+  - Step 0 skeleton tests: 4 PASSED
+
+### 8. Decisions and Assumptions
+- User ki explicit permission ke mutabiq `Ashley ` sheet ko PCN sheet treat kiya gaya with synthetic headers.
+- User ke agreement ke mutabiq Excel ki 900+ ghost blank rows ko drop kiya gaya.
+- Client ki raw Excel workbook ko modify nahi kiya gaya.
+- Database storage abhi implement nahi ki gayi (Step 3 ka scope).
+
+### 9. Security and Data-Handling Notes
+- Unit test fixtures mein sirf dummy/synthetic data (e.g. `'Synthetic Customer One'`, `'AB12CDE'`, `'SYNTH-TICKET-01'`) use kiya gaya. Real client personal records kabhi test files mein nahi likhay gaye.
+
+### 10. Known Limitations and Remaining Work
+- Cleaned data abhi persistent database (SQLite) mein save nahi ho raha (Step 3).
+- FastAPI REST endpoints abhi implement nahi hue (Step 4).
+
+### 11. Next Step (Without Implementing It)
+- **Step 3: SQLite database and import pipeline**
+  - SQLAlchemy 2.x models design karna (`Customer`, `Vehicle`, `Contract`, `PCN`, `DataQualityIssue`, `ImportRun`).
+  - Schema initialization / migration utility setup karna.
+  - Idempotent import pipeline banana (taake re-running import duplicates create na kare).
+  - Database transactions use karna (atomic commit/rollback on failure).
+  - Automated tests likhna for database operations.
+
 
