@@ -11,6 +11,7 @@ if str(root_dir) not in sys.path:
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 
 from backend.app.api.router import api_router
 from backend.app.core.config import settings
@@ -44,3 +45,23 @@ app.add_middleware(
 
 # Include API endpoints (Health, Import, PCNs, Fleet, Issues, Reports)
 app.include_router(api_router, prefix="/api")
+
+
+@app.get("/callback", response_class=HTMLResponse)
+def oauth_callback(code: str = None):
+    """Handles OAuth redirect callback for DocuSign Admin Consent."""
+    return HTMLResponse(
+        """
+        <!DOCTYPE html>
+        <html>
+        <head><title>DocuSign Consent Granted</title></head>
+        <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f0fdf4; margin: 0;">
+            <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; max-width: 450px; border: 1px solid #bbf7d0;">
+                <div style="font-size: 48px; margin-bottom: 12px;">✅</div>
+                <h2 style="color: #16a34a; margin: 0 0 8px;">DocuSign Consent Granted!</h2>
+                <p style="color: #475569; font-size: 14px; line-height: 1.5;">Aap ki DocuSign app successfully authenticate ho chuki hai. Backend ab automatically DocuSign envelopes create aur sign karwa sakta hai. Aap is tab ko band kar sakte hain.</p>
+            </div>
+        </body>
+        </html>
+        """
+    )

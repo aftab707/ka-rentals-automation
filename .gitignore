@@ -53,6 +53,7 @@ backend/.env.*
 *.db
 *.sqlite
 *.sqlite3
+*.pdf
 data/source/*
 !data/source/.gitkeep
 data/processed/*

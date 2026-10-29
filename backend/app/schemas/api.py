@@ -79,6 +79,9 @@ class ContractResponse(BaseModel):
     normalized_status: str
     vehicle_model: Optional[str] = None
     hire_duration: Optional[str] = None
+    docusign_envelope_id: Optional[str] = None
+    docusign_status: Optional[str] = None
+    signed_at: Optional[datetime] = None
     source_sheet: str
     source_row: int
 
@@ -153,3 +156,40 @@ class ReportPreviewResponse(BaseModel):
     conflicts: List[PCNResponse]
     contracts_requiring_action: List[ContractResponse]
     critical_issues: List[DataQualityIssueResponse]
+
+
+class NewHireRequest(BaseModel):
+    """Payload to create a new vehicle hire agreement directly from the dashboard."""
+
+    vehicle_registration: str
+    customer_name: str
+    customer_email: str
+    customer_phone: Optional[str] = None
+    customer_license: Optional[str] = None
+    customer_address: Optional[str] = None
+    vehicle_model: Optional[str] = None
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    rate: Optional[float] = None
+    hire_duration: Optional[str] = "28 days"
+    send_docusign: bool = True
+
+
+class SendDocuSignRequest(BaseModel):
+    """Payload to trigger a DocuSign agreement dispatch for an existing contract."""
+
+    signer_email: Optional[str] = None
+    signer_name: Optional[str] = None
+
+
+class DocuSignActionResponse(BaseModel):
+    """Response returned upon dispatching or checking a DocuSign envelope."""
+
+    success: bool
+    envelope_id: Optional[str] = None
+    status: str
+    message: str
+    contract_id: int
+    recipient_email: Optional[str] = None
+    sent_at: datetime
+

@@ -21,6 +21,9 @@ from backend.app.schemas.api import (
     DashboardSummary,
     ReportPreviewResponse,
     PaginatedResponse,
+    NewHireRequest,
+    SendDocuSignRequest,
+    DocuSignActionResponse,
 )
 from backend.app.schemas.report import (
     ActionItem,
@@ -50,6 +53,9 @@ __all__ = [
     "DashboardSummary",
     "ReportPreviewResponse",
     "PaginatedResponse",
+    "NewHireRequest",
+    "SendDocuSignRequest",
+    "DocuSignActionResponse",
     "ActionItem",
     "OperationalReport",
     "MockEmailRequest",

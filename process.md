@@ -16,7 +16,8 @@ Yeh document project ke har approved step ka mukammal record aur diary hai. Har 
 | **[Step 5](#step-5-vite--react-frontend-foundation)** | Vite + React Frontend Foundation | **Completed** | Modern responsive dashboard layout, components, Vite build 1507 modules |
 | **[Step 6](#step-6-connect-react-to-real-backend)** | Connect React to Real Backend | **Completed** | E2E integration, DB population, 37/37 tests pass, proxy live |
 | **[Step 7](#step-7-report-generation-and-business-rules)** | Report Generation & Business Rules | **Completed** | Categorized daily operational report, HTML/MD preview, mock email sandbox, 44 tests pass |
-| **[Step 8](#step-8-n8n-workflow-integration)** | n8n Workflow Integration | **Pending Approval** | Automated scheduled webhook triggers, email digest dispatch, error alerts |
+| **[Step 8](#step-8-docusign-live-integration-and-direct-hire-onboarding)** | DocuSign Live Integration & Direct Driver Hire | **Completed** | DocuSign REST JWT API, webhook listener, dashboard modal form (no Excel), 49 tests pass |
+| **[Step 9](#step-9-wordpress-website-intake-and-scheduled-workflows)** | WordPress Intake & Scheduled Workflows | **Pending Approval** | WordPress form webhook intake, periodic background digests |
 
 ---
 
@@ -675,14 +676,108 @@ cd frontend; npm run build
 - Tamam reports auditability ke liye source sheet aur row reference retain karte hain bina external leakage ke.
 
 ### 10. Known Limitations and Remaining Work
-- Automated periodic scheduling (jaise har subah 9 AM par report run hona) abhi n8n workflow ke zariye connect hona baqi hai (Step 8).
+- Step 7 tak DocuSign integration aur direct dashboard driver onboarding form mojood nahi thay.
 
 ### 11. Next Step (Without Implementing It)
-- **Step 8: n8n workflow integration**
-  - n8n workflow JSON design karna (Scheduled daily trigger / Cron).
-  - FastAPI backend endpoints ke sath webhook / HTTP Request node integrate karna (`/api/reports/daily/json` aur `/api/reports/email/mock-send`).
-  - Error alerting aur execution logs handle karna.
-  - Safe import trigger aur test workflow documentation create karna.
+- **Step 8: DocuSign Live Integration & Direct Driver Hire** (Completed - see below)
+
+---
+
+## Step 8: DocuSign Live Integration and Direct Hire Onboarding
+
+- **Date / Time:** 2026-10-29 18:25 PKT
+- **Status:** Completed
+
+### 1. Objective (Hum kya banana chahte thay)
+Client ko manual Excel reliance aur DocuSign portal ko bar bar check karne ki zahmat se azaad karna:
+1. DocuSign Developer Sandbox account ke sath live REST API (OAuth 2.0 JWT Bearer Grant) integration qayam karna.
+2. 6-Page standard KA Rentals legal contract document (jisme Section 10: Statement of Liability under UK Road Traffic Offenders Act 1988 for PCNs shamil hai) dynamically render kar ke driver ki email par digital signature ke liye dispatch karna.
+3. Live Webhook Listener (`POST /api/webhooks/docusign`) banana jo driver ke signature complete karte hi contract ko automatically `signed` aur vehicle ko active agreement mein convert kar de.
+4. Dashboard UI par direct **"➕ New Hire Agreement"** modal form banana taake client direct website/dashboard se naya driver aur contract bana sake bina Excel ko chhuay.
+
+### 2. Files Created / Changed
+- `backend/app/models/entities.py`: `Contract` model mein `docusign_envelope_id`, `docusign_status`, aur `signed_at` columns add kiye.
+- `backend/app/db/session.py`: `init_db()` mein dynamic SQLite column migration logic add kiya taake existing DB bina drop kiye nayi columns automatically adopt kar le.
+- `backend/app/schemas/api.py`: `NewHireRequest`, `SendDocuSignRequest`, `DocuSignActionResponse` aur `ContractResponse` mein DocuSign tracking fields add kiye.
+- `backend/app/services/docusign_service.py`:
+  - `get_docusign_access_token()`: JWT Bearer RS256 token exchange with 1-hour in-memory cache.
+  - `generate_contract_html()`: 6-page legal hire agreement template with anchor tag `/sn1/`.
+  - `send_contract_envelope()`: Base64 document packaging and DocuSign Envelopes API dispatch.
+  - `get_envelope_status()`: Real-time envelope audit polling.
+  - `process_docusign_webhook_event()`: Automated signature event listener and database state machine transition.
+- `backend/app/api/endpoints/contracts.py`:
+  - `POST /api/contracts`: Direct driver onboarding & hire agreement creation.
+  - `POST /api/contracts/{id}/send-docusign`: On-demand DocuSign dispatch for existing contracts.
+  - `GET /api/contracts/{id}/docusign-status`: Real-time status sync.
+  - `POST /api/webhooks/docusign`: DocuSign Connect webhook endpoint.
+- `frontend/src/services/api.js`: `createContract`, `sendContractDocuSign`, `checkDocuSignStatus`, aur `triggerDocuSignWebhook` methods.
+- `frontend/src/styles/index.css`: Added modal backdrop and modal card responsive styles.
+- `frontend/src/pages/ContractsPage.jsx`:
+  - "➕ New Hire Agreement" primary action button.
+  - Comprehensive driver onboarding modal (Registration, Model, Driver Name, Email, Phone, License, Address, Rate, Start Date, Immediate DocuSign checkbox).
+  - DocuSign tracking badges (`Completed`, `Awaiting Signature`, `Not Dispatched`).
+  - Quick action buttons ("Send DocuSign", "Sync Status", "Simulate Sign Webhook").
+- `backend/tests/test_docusign_workflow.py`: 5 dedicated unit and integration tests.
+- `process.md`: Development log update.
+
+### 3. What Was Implemented
+- **Full JWT Bearer Authentication:** Verified against live DocuSign Developer Portal with Admin Consent (`http://localhost:8000/callback`).
+- **Legal Contract Generation:** 6-page agreement generated with exact Road Traffic Offenders Act 1988 PCN liability transfer clause.
+- **Real-Time Webhook Synchronization:** Instant transition from `not_signed` to `signed` upon receipt of webhook event.
+- **Excel Elimination UI:** Client ab direct dashboard se hi naya driver aur vehicle agreement bana sakta hai; naye customer aur vehicle records database mein auto-persist hote hain.
+
+### 4. Why We Chose This Approach
+- **Efficiency:** Client ko manual DocuSign login aur Excel update karne ki zaroorat nahi rehti.
+- **Traceability:** Direct dashboard entries ko `source_sheet="Direct Dashboard"` ke sath flag kiya jata hai taake Excel imported data aur UI created data mein clear distinction rahay.
+- **Graceful Fallbacks:** Agar internet ya DocuSign temporary unavailable ho, to agreement database mein draft ke taur par save ho jata hai aur baad mein 1-click par dispatch ho sakta hai.
+
+### 5. How It Works (Explained Simply)
+- Client dashboard par "New Hire Agreement" kholta hai aur driver ki details likhta hai.
+- Backend customer aur vehicle record create karta hai aur DocuSign API ko call kar ke envelope create karta hai.
+- Driver ko DocuSign se email aati hai, driver phone par sign karta hai.
+- DocuSign hamare webhook ko ping karta hai aur contract automatically **`Signed`** ho jata hai.
+
+### 6. Commands Run
+```powershell
+# Run DocuSign tests
+$env:PYTHONPATH="."
+python -m pytest backend/tests/test_docusign_workflow.py -v
+
+# Run entire test suite (49 tests)
+python -m pytest backend/tests/ -v
+
+# Frontend build check
+cd frontend; npm run build
+```
+
+### 7. Tests and Results
+- **Command:** `python -m pytest backend/tests/ -v`
+- **Result:** **49 passed in 14.45s (100% pass rate, 0 warnings)**
+  - `test_docusign_jwt_token_generation`: PASSED (Live JWT bearer token exchange with DocuSign Developer Portal)
+  - `test_contract_html_generation_has_statement_of_liability`: PASSED (Statement of liability and /sn1/ verified)
+  - `test_create_new_hire_agreement_endpoint`: PASSED (Driver onboarding without Excel verified)
+  - `test_docusign_webhook_event_processing`: PASSED (Auto-flip to signed upon webhook event verified)
+  - `test_check_docusign_status_not_sent`: PASSED (Status querying verified)
+  - Pehle ke tamam 44 E2E, Report, Database, Cleaning, aur Profile tests: PASSED
+- **Frontend Build Check:** `npm run build` completed in 4.35s with 1,507 modules bundled without any errors.
+
+### 8. Decisions and Assumptions
+- n8n external runner ko user ki request par postpone kiya gaya taake core DocuSign aur direct driver onboarding par primary focus ho sakay.
+- Webhook endpoint open rakha gaya hai taake DocuSign Connect notifications smoothly deliver hon.
+
+### 9. Security and Data-Handling Notes
+- DocuSign RSA Private Key aur Account IDs `.env` file mein safe hain aur `.gitignore` mein strictly excluded hain.
+- Direct UI intake forms input validation perform karte hain taake SQL injection aur invalid registrations prevent hon.
+
+### 10. Known Limitations and Remaining Work
+- Client ki live WordPress website form ke sath direct webhook connection abhi pending hai (Step 9).
+
+### 11. Next Step (Without Implementing It)
+- **Step 9: WordPress website intake and scheduled workflows**
+  - WordPress GravityForms / Contact Form 7 webhook integration.
+  - Automated driver verification intake pipeline.
+  - Periodic background digests.
+
 
 
 

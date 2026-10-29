@@ -101,4 +101,28 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload || {}),
     }),
+
+  createContract: (payload) =>
+    request('/api/contracts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+
+  sendContractDocuSign: (contractId, payload = {}) =>
+    request(`/api/contracts/${contractId}/send-docusign`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
+
+  checkDocuSignStatus: (contractId) =>
+    request(`/api/contracts/${contractId}/docusign-status`),
+
+  triggerDocuSignWebhook: (payload) =>
+    request('/api/webhooks/docusign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    }),
 };

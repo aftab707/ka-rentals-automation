@@ -101,6 +101,9 @@ class Contract(Base):
     normalized_status: Mapped[str] = mapped_column(String(32), index=True, default="unknown")
     vehicle_model: Mapped[Optional[str]] = mapped_column(String(128), nullable=True)
     hire_duration: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    docusign_envelope_id: Mapped[Optional[str]] = mapped_column(String(128), nullable=True, index=True)
+    docusign_status: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    signed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     source_sheet: Mapped[str] = mapped_column(String(64), default="Current Contracts")
     source_row: Mapped[int] = mapped_column(Integer, default=0)
