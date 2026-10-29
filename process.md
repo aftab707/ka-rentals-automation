@@ -4,6 +4,21 @@ Yeh document project ke har approved step ka mukammal record aur diary hai. Har 
 
 ---
 
+## Project Status Overview & Index
+
+| Step | Name | Status | Summary |
+| :--- | :--- | :--- | :--- |
+| **[Step 0](#step-0-inspect-and-prepare-project-structure)** | Inspect & Prepare Project Structure | **Completed** | Skeleton directories, privacy .gitignore, git init, health test |
+| **[Step 1](#step-1-excel-workbook-inspect-and-profile)** | Excel Workbook Inspect & Profile | **Completed** | 14 sheets scanned, profiling doc created, privacy verified |
+| **[Step 2](#step-2-data-cleaning-rules-and-canonical-model)** | Data Cleaning Rules & Canonical Model | **Completed** | Pydantic models, UK reg normalization, status mapping, conflict logic |
+| **[Step 3](#step-3-sqlite-database-and-import-pipeline)** | SQLite Database & Import Pipeline | **Completed** | SQLAlchemy 2.x models, idempotent upsert pipeline, atomic rollback |
+| **[Step 4](#step-4-fastapi-endpoints-and-backend-tests)** | FastAPI Endpoints & Backend Tests | **Completed** | REST routes, validation, KPI calculations, 30 tests passing |
+| **[Step 5](#step-5-vite--react-frontend-foundation)** | Vite + React Frontend Foundation | **Completed** | Modern responsive dashboard layout, components, Vite build 1507 modules |
+| **[Step 6](#step-6-connect-react-to-real-backend)** | Connect React to Real Backend | **Completed** | E2E integration, DB population, 37/37 tests pass, proxy live |
+| **[Step 7](#11-next-step-without-implementing-it)** | Report Generation & Business Rules | **Pending Approval** | Ready to implement upon user approval (`Next`) |
+
+---
+
 ## Step 0: Inspect and Prepare Project Structure
 
 - **Date / Time:** 2026-10-29 11:42 PKT
@@ -500,11 +515,13 @@ python -m pytest backend/tests/ -v
 React frontend ko live FastAPI backend aur SQLite database (`data/processed/fleet_rental.db`) ke sath end-to-end connect karna, verify karna ke UI ke tamam KPI counts backend database calculation se 100% match hotay hain, Excel file upload pipeline ko UI ke through trigger karke idempotent updates verify karna, multi-sheet PCN conflict status aur traceability ko live UI queries mein confirm karna, search aur empty states test karna, aur end-to-end automated tests likhna.
 
 ### 2. Files Created / Changed
+- `D:\KARental\backend\app\core\config.py`: `pydantic_settings` ki dependency khatam karke standard `os.getenv` aur `python-dotenv` par shift kiya gaya taake fresh virtual environments mein missing package error na aaye.
+- `D:\KARental\backend\app\main.py` & `backend\app\__init__.py`: Dynamic `sys.path` injection add ki gayi taake `uvicorn app.main:app` command chahe root `D:\KARental` se run ho ya `D:\KARental\backend` ke andar se, dono sooraton mein `backend.app...` module successfully load ho.
 - `D:\KARental\backend\app\api/endpoints/dashboard.py`: Dashboard data quality issue counts ko latest import run se accurately scope kiya gaya taake re-imports par historical issue audit runs merge na hon.
 - `D:\KARental\backend\app\api/endpoints/reports.py`: Operational report preview issues ko latest import run snapshot se scope kiya gaya.
 - `D:\KARental\data\processed\fleet_rental.db`: Main persistent SQLite database initialize aur populate kiya gaya (52 Customers, 14 Vehicles, 13 Contracts, 78 PCNs, 75 Data Quality Issues).
 - `D:\KARental\backend\tests/test_e2e_frontend_backend.py`: End-to-end integration test suite simulating exact browser frontend API requests.
-- `D:\KARental\process.md`: Updated development log with Step 6 details.
+- `D:\KARental\process.md`: Updated development log with Step 6 details and Table of Contents.
 
 ### 3. What Was Implemented
 - **End-to-End Data Verification:**
