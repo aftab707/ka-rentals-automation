@@ -13,8 +13,6 @@ import {
   Car,
   User,
   Calendar,
-  Sparkles,
-  ShieldCheck,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { StatusBadge } from '../components/StatusBadge';
@@ -139,21 +137,6 @@ export function ContractsPage() {
       setIsManualModel(false);
       setFormModel(val);
     }
-  }
-
-  // Quick date helper
-  function setQuickDate(daysAhead) {
-    const d = new Date();
-    d.setDate(d.getDate() + daysAhead);
-    setFormStartDate(d.toISOString().split('T')[0]);
-  }
-
-  function setNextMonday() {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = d.getDate() + ((7 - day + 1) % 7 || 7);
-    const nextMon = new Date(d.setDate(diff));
-    setFormStartDate(nextMon.toISOString().split('T')[0]);
   }
 
   // Form Submission
@@ -594,11 +577,8 @@ export function ContractsPage() {
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: '#0f172a' }}>
-                    Onboard Driver & New Hire Agreement
+                    New Hire Agreement
                   </h3>
-                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
-                    Creates contract, registers driver compliance, and prepares DocuSign envelope
-                  </p>
                 </div>
               </div>
               <button
@@ -840,24 +820,11 @@ export function ContractsPage() {
                       type="number"
                       step="0.01"
                       required
-                      placeholder="325"
+                      placeholder="e.g. 325"
                       value={formRate}
                       onChange={(e) => setFormRate(e.target.value)}
                       className="form-control"
                     />
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Presets:</span>
-                      {['200', '250', '300', '325'].map((amt) => (
-                        <button
-                          key={amt}
-                          type="button"
-                          className="quick-btn"
-                          onClick={() => setFormRate(amt)}
-                        >
-                          £{amt}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
                   <div>
@@ -869,29 +836,6 @@ export function ContractsPage() {
                       onChange={(e) => setFormStartDate(e.target.value)}
                       className="form-control"
                     />
-                    <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
-                      <button
-                        type="button"
-                        className="quick-btn"
-                        onClick={() => setQuickDate(0)}
-                      >
-                        Today
-                      </button>
-                      <button
-                        type="button"
-                        className="quick-btn"
-                        onClick={() => setQuickDate(1)}
-                      >
-                        Tomorrow
-                      </button>
-                      <button
-                        type="button"
-                        className="quick-btn"
-                        onClick={setNextMonday}
-                      >
-                        Next Monday
-                      </button>
-                    </div>
                   </div>
                 </div>
 
@@ -904,8 +848,8 @@ export function ContractsPage() {
                   >
                     <option value="7 days">7 Days (1 Week)</option>
                     <option value="14 days">14 Days (2 Weeks)</option>
-                    <option value="28 days">28 Days (Standard 4 Weeks Agreement)</option>
-                    <option value="90 days">90 Days (3 Months Extended)</option>
+                    <option value="28 days">28 Days (Standard 4 Weeks)</option>
+                    <option value="90 days">90 Days (3 Months)</option>
                   </select>
                 </div>
               </div>
@@ -913,14 +857,14 @@ export function ContractsPage() {
               {/* SECTION 4: DOCUSIGN TOGGLE */}
               <div
                 style={{
-                  padding: '14px 16px',
+                  padding: '12px 14px',
                   backgroundColor: '#f8fafc',
-                  border: '1px solid #bfdbfe',
-                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
                   marginBottom: '20px',
                 }}
               >
-                <label style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                   <input
                     type="checkbox"
                     checked={formSendDocuSign}
@@ -928,41 +872,15 @@ export function ContractsPage() {
                     style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                   />
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e40af' }}>
-                        Dispatch DocuSign Agreement to driver immediately
-                      </span>
-                      <ShieldCheck size={16} color="#2563eb" />
-                    </div>
-                    <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                      Renders standard 6-page contract with Section 10 PCN liability transfer under Road Traffic Offenders Act 1988.
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0f172a' }}>
+                      Dispatch DocuSign Agreement to driver immediately
+                    </span>
+                    <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b' }}>
+                      Includes Section 10 PCN liability transfer under Road Traffic Offenders Act 1988.
                     </span>
                   </div>
                 </label>
               </div>
-
-              {/* LIVE SUMMARY BANNER */}
-              {formReg && formDriverName && (
-                <div
-                  style={{
-                    backgroundColor: '#f0fdf4',
-                    border: '1px solid #bbf7d0',
-                    borderRadius: '8px',
-                    padding: '10px 14px',
-                    marginBottom: '20px',
-                    fontSize: '0.82rem',
-                    color: '#166534',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  <Sparkles size={16} color="#16a34a" />
-                  <span>
-                    <strong>Summary:</strong> {formReg} ({formModel || 'Model TBD'}) • Driver: <strong>{formDriverName}</strong> • Rate: <strong>£{formRate}/wk</strong> • DocuSign: {formSendDocuSign ? 'Auto-Dispatch Enabled' : 'Draft Only'}
-                  </span>
-                </div>
-              )}
 
               {/* BUTTONS */}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
