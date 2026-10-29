@@ -239,11 +239,95 @@ python -m pytest backend/tests/ -v
 - FastAPI REST endpoints abhi implement nahi hue (Step 4).
 
 ### 11. Next Step (Without Implementing It)
-- **Step 3: SQLite database and import pipeline**
-  - SQLAlchemy 2.x models design karna (`Customer`, `Vehicle`, `Contract`, `PCN`, `DataQualityIssue`, `ImportRun`).
-  - Schema initialization / migration utility setup karna.
-  - Idempotent import pipeline banana (taake re-running import duplicates create na kare).
-  - Database transactions use karna (atomic commit/rollback on failure).
-  - Automated tests likhna for database operations.
+- **Step 3: SQLite database and import pipeline** (Completed - see below)
+
+---
+
+## Step 3: SQLite Database and Import Pipeline
+
+- **Date / Time:** 2026-10-29 14:00 PKT
+- **Status:** Completed
+
+### 1. Objective (Hum kya banana chahte thay)
+SQLite database setup karna through modern SQLAlchemy 2.x ORM, schema initialization aur migration utilities tayar karna, idempotent import pipeline banana taake same Excel workbook dobara import karne par data multiply/duplicate na ho, database transactions ke sath atomic rollback-on-failure ensure karna, auditability ke liye `ImportRun` metadata table implement karna, aur automated tests se verify karna.
+
+### 2. Files Created / Changed
+- `D:\KARental\backend\app\core\config.py`: Core configuration (paths, runtime settings, default DB path `data/processed/fleet_rental.db`).
+- `D:\KARental\backend\app\models\base.py`: SQLAlchemy DeclarativeBase.
+- `D:\KARental\backend\app\models\entities.py`: ORM models for `Customer`, `Vehicle`, `Contract`, `PCN`, `DataQualityIssueRecord`, `ImportRun`.
+- `D:\KARental\backend\app\models\__init__.py`: Model exports.
+- `D:\KARental\backend\app\db\session.py`: DB engine, session maker, `init_db()`, `reset_db()`, `get_db()`.
+- `D:\KARental\backend\app\db\__init__.py`: Database session exports.
+- `D:\KARental\backend\app\services\importer.py`: Idempotent transactional import pipeline with SHA-256 file hashing, customer matching, and atomic commit/rollback.
+- `D:\KARental\backend\tests\test_database_pipeline.py`: Comprehensive automated tests for schema initialization, valid import, idempotency, status conflict persistence, and atomic rollback.
+- `D:\KARental\process.md`: Updated development log with Step 3 details.
+
+### 3. What Was Implemented
+- **SQLAlchemy 2.x Models:**
+  - `ImportRun`: Tracks import runs (`filename`, `file_hash`, `status`, `started_at`, `completed_at`, `customers_count`, `contracts_count`, `vehicles_count`, `pcns_count`, `issues_count`, `error_message`).
+  - `Customer`: Unique primary key from source `sr`, full name, email, phone, license, traceability.
+  - `Vehicle`: Unique constraint on `normalized_registration`, model, mileage, driver, active contract status.
+  - `Contract`: Foreign key to `vehicles.normalized_registration`, customer link, dates, rate, period, normalized status (`signed`, `not_signed`, `no_contract`).
+  - `PCN`: Unique constraint on `ticket_number`, foreign key to vehicle, date, fine, payment URL, conflict flags (`has_conflict`, `conflict_notes`), source sheet and row.
+  - `DataQualityIssueRecord`: Linked to `import_run_id` for auditing.
+- **Idempotent Upsert Pipeline:**
+  - Import pipeline existing records ko unke natural keys (`ticket_number`, `normalized_registration`, `id`) ke zariye match karti hai. Dobara import karne par duplicate rows banne ke bajaye existing records update hotay hain.
+- **Atomic Transactions & Failure Protection:**
+  - Tamam updates ek transaction ke andar perform hoti hain. Agar koi error aaye to database automatically rollback ho jata hai, zero partial/corrupted records bachte hain, aur `ImportRun` status `failed` ke sath error reason record hota hai.
+- **Verification Run Results:**
+  - Initial import: 52 Customers, 14 Vehicles, 13 Contracts, 78 PCNs, 75 Data Quality Issues.
+  - Re-import with same workbook: Exactly 52 Customers, 14 Vehicles, 13 Contracts, 78 PCNs (Zero duplicates created).
+  - Cross-sheet conflict ticket `2577262100014` persisted with `has_conflict=True` and `normalized_status='conflict'`.
+
+### 4. Why We Chose This Approach
+- **Data Integrity & Consistency:** Car rental fleet mein duplicate contracts ya duplicate PCN entries financial confusion peda karti hain. Idempotency guarantees ke Excel file ko chahe 1 dafa import karein ya 10 dafa, system clean state mein rahega.
+- **Atomic Safety:** Agar import ke darmiyan machine crash ho ya Excel mein corrupt value ho, aadha-adhoora data commit nahi hota.
+
+### 5. How It Works (Explained Simply)
+- Importer workbook ki SHA-256 hash nikal kar `ImportRun` record banata hai.
+- Loader file clean karke Pydantic models return karta hai.
+- Importer database session ke zariye check karta hai ke record pehle se mojood hai ya nahi; agar hai to update karta hai, warna insert karta hai.
+- End par transaction commit hoti hai aur import metrics update ho jati hain.
+
+### 6. Commands Run
+```powershell
+# Run backend pytest suite (all 21 tests)
+$env:PYTHONPATH="."
+python -m pytest backend/tests/ -v
+```
+
+### 7. Tests and Results
+- **Command:** `python -m pytest backend/tests/ -v`
+- **Result:** **21 passed in 8.37s**
+  - `test_schema_initialization`: PASSED (Database tables created and queried)
+  - `test_valid_and_idempotent_import`: PASSED (Initial counts 52/14/13/78; re-import counts remain 52/14/13/78 without doubling)
+  - `test_duplicate_pcn_and_status_conflict_in_db`: PASSED (Conflict PCN recorded with has_conflict=True and CRITICAL severity alert)
+  - `test_atomic_rollback_on_failure`: PASSED (Simulated constraint error triggers complete rollback; 0 partial records saved, run logged as 'failed')
+  - Pehle ke تمام 17 tests: PASSED
+
+### 8. Decisions and Assumptions
+- SQLite database location default `data/processed/fleet_rental.db` rakhi gayi hai jo `.gitignore` mein shamil hai.
+- Testing in-memory SQLite engine par chali taake test isolation aur speed maintain rahe.
+
+### 9. Security and Data-Handling Notes
+- Database file `.db` aur source workbooks `.gitignore` rules ke zariye Git repository se strictly excluded hain.
+
+### 10. Known Limitations and Remaining Work
+- REST API endpoints abhi expose nahi hue (Step 4 ka scope).
+- Frontend UI abhi database se connected nahi hai (Step 5 aur 6 ka scope).
+
+### 11. Next Step (Without Implementing It)
+- **Step 4: FastAPI endpoints and backend tests**
+  - REST API routes banana:
+    - `GET /api/health`
+    - `POST /api/import/excel` (file upload handler with validation and size check)
+    - `GET /api/dashboard/summary` (KPI counts: total vehicles, active contracts, unpaid PCNs, conflict PCNs, data issues)
+    - `GET /api/pcns` (PCN list with pagination, status filter, registration filter, has_conflict filter)
+    - `GET /api/contracts` (Contracts list with status filter)
+    - `GET /api/data-quality/issues` (Audited data quality issues list with severity filter)
+    - `GET /api/imports` (History of import runs)
+  - Pydantic response schemas banana.
+  - Automated API integration tests likhna with FastAPI `TestClient`.
+
 
 
