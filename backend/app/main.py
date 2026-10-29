@@ -48,6 +48,13 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 
+@app.get("/", tags=["Health"])
+@app.get("/health", tags=["Health"])
+def root_health_check():
+    """Root health check for Render, UptimeRobot, and cloud monitors."""
+    return {"status": "ok", "app": "Fleet Rental Automation API", "version": "0.1.0"}
+
+
 @app.get("/callback", response_class=HTMLResponse)
 def oauth_callback(code: str = None):
     """Handles OAuth redirect callback for DocuSign Admin Consent."""
