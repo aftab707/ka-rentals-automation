@@ -15,13 +15,16 @@ from fastapi.responses import HTMLResponse
 
 from backend.app.api.router import api_router
 from backend.app.core.config import settings
-from backend.app.db.session import init_db
+from backend.app.db.session import init_db, SessionLocal
+from backend.app.db.auto_seed import seed_database_if_empty
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initializes tables on application startup."""
+    """Initializes tables on application startup and auto-seeds if database is empty."""
     init_db()
+    with SessionLocal() as db:
+        seed_database_if_empty(db)
     yield
 
 
