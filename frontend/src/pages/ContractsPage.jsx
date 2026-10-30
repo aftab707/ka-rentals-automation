@@ -643,7 +643,7 @@ export function ContractsPage() {
                   <Car size={16} color="#2563eb" /> 1. Vehicle Selection
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div className="form-grid-2">
                   {/* Vehicle Registration Dropdown */}
                   <div>
                     <label className="form-label">Fleet Vehicle Registration *</label>
@@ -757,7 +757,7 @@ export function ContractsPage() {
                   <User size={16} color="#2563eb" /> 2. Driver Personal & Compliance Info
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                <div className="form-grid-2" style={{ marginBottom: '12px' }}>
                   <div>
                     <label className="form-label">Driver Full Name *</label>
                     <input
@@ -788,7 +788,7 @@ export function ContractsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                <div className="form-grid-2" style={{ marginBottom: '12px' }}>
                   <div>
                     <label className="form-label">Contact Phone</label>
                     <input
@@ -842,7 +842,7 @@ export function ContractsPage() {
                   <Calendar size={16} color="#2563eb" /> 3. Rental Terms & Rate
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '12px' }}>
+                <div className="form-grid-2" style={{ marginBottom: '12px' }}>
                   <div>
                     <label className="form-label">Weekly Rental Rate (£)</label>
                     <input

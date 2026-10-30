@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Menu, Car } from 'lucide-react';
 import { Sidebar } from './components/Sidebar';
 import { OverviewPage } from './pages/OverviewPage';
 import { PCNsPage } from './pages/PCNsPage';
@@ -11,6 +12,7 @@ import { api } from './services/api';
 export function App() {
   const [currentTab, setTab] = useState('overview');
   const [conflictCount, setConflictCount] = useState(0);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     async function checkConflicts() {
@@ -35,15 +37,45 @@ export function App() {
 
   return (
     <div className="app-layout">
-      <Sidebar currentTab={currentTab} setTab={setTab} conflictCount={conflictCount} />
+      {/* Mobile Drawer Backdrop */}
+      <div
+        className={`sidebar-backdrop ${sidebarOpen ? 'open' : ''}`}
+        onClick={() => setSidebarOpen(false)}
+        aria-hidden="true"
+      />
+
+      {/* Modern Sidebar */}
+      <Sidebar
+        currentTab={currentTab}
+        setTab={setTab}
+        conflictCount={conflictCount}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
       <div className="main-wrapper">
         <header className="topbar">
-          <h1 className="page-title">{titles[currentTab] || 'Dashboard'}</h1>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
-              System Status: <span style={{ color: '#16a34a', fontWeight: 600 }}>● Connected</span>
-            </span>
+          <div className="topbar-left">
+            <button
+              type="button"
+              className="mobile-menu-btn"
+              onClick={() => setSidebarOpen(true)}
+              aria-label="Open Navigation Menu"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="topbar-brand-mobile">
+              <Car size={18} color="#2563eb" />
+              <span>KA Rentals</span>
+            </div>
+            <h1 className="page-title">{titles[currentTab] || 'Dashboard'}</h1>
+          </div>
+
+          <div className="topbar-right">
+            <div className="system-status-pill">
+              <span className="live-dot" />
+              <span className="status-label">Live API</span>
+            </div>
           </div>
         </header>
 
